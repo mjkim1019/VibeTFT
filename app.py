@@ -51,6 +51,64 @@ components.html("""
 </head>
 """, height=0)
 
+# Wake Lock for keeping screen awake during gameplay
+components.html("""
+<script>
+let wakeLock = null;
+
+async function enableWakeLock() {
+    if ('wakeLock' in navigator) {
+        try {
+            wakeLock = await navigator.wakeLock.request('screen');
+            console.log('VibeTFT: Wake Lock active');
+        } catch (e) {
+            console.log('VibeTFT: Wake Lock failed', e);
+        }
+    }
+}
+
+// Handle visibility changes - reacquire wake lock when returning to app
+document.addEventListener('visibilitychange', async () => {
+    if (wakeLock !== null && document.visibilityState === 'visible') {
+        await enableWakeLock();
+    }
+});
+
+// Initial activation (with user interaction fallback for mobile)
+enableWakeLock().catch(() => {
+    document.addEventListener('click', enableWakeLock, { once: true });
+});
+</script>
+""", height=0)
+
+# Background audio for keeping app active in background
+components.html("""
+<audio id="background-audio" loop>
+    <source src="/static/audio/background.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+const audio = document.getElementById('background-audio');
+
+// Auto-play background audio
+function playBackgroundAudio() {
+    audio.play()
+        .then(() => console.log('VibeTFT: Background audio playing'))
+        .catch(e => console.log('VibeTFT: Audio play failed', e));
+}
+
+// Wait for user interaction (required for mobile autoplay policy)
+document.addEventListener('click', playBackgroundAudio, { once: true });
+
+// Resume audio when returning from background
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && audio.paused) {
+        playBackgroundAudio();
+    }
+});
+</script>
+""", height=0)
+
 st.title('🎮 VibeTFT')
 st.write('Welcome to VibeTFT - Your TFT companion app!')
 
