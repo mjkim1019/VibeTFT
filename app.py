@@ -55,37 +55,7 @@ components.html("""
 </head>
 """, height=0)
 
-# Wake Lock for keeping screen awake during gameplay
-components.html("""
-<script>
-let wakeLock = null;
-
-async function enableWakeLock() {
-    if ('wakeLock' in navigator) {
-        try {
-            wakeLock = await navigator.wakeLock.request('screen');
-            console.log('VibeTFT: Wake Lock active');
-        } catch (e) {
-            console.log('VibeTFT: Wake Lock failed', e);
-        }
-    }
-}
-
-// Handle visibility changes - reacquire wake lock when returning to app
-document.addEventListener('visibilitychange', async () => {
-    if (wakeLock !== null && document.visibilityState === 'visible') {
-        await enableWakeLock();
-    }
-});
-
-// Initial activation (with user interaction fallback for mobile)
-enableWakeLock().catch(() => {
-    document.addEventListener('click', enableWakeLock, { once: true });
-});
-</script>
-""", height=0)
-
-# Background audio for keeping app active in background
+# Wake Lock and Background audio combined component
 # Load and encode audio file
 with open('static/audio/background.mp3', 'rb') as audio_file:
     audio_base64 = base64.b64encode(audio_file.read()).decode()
@@ -115,7 +85,7 @@ audio_html = f"""
 }}
 </style>
 
-<button id="audio-btn" title="배경음악 재생">🎵</button>
+<button id="audio-btn" title="배경음악 재생 & 화면 켜짐 유지">🎵</button>
 
 <audio id="background-audio" loop>
     <source src="data:audio/mpeg;base64,{audio_base64}" type="audio/mpeg">
@@ -124,11 +94,29 @@ audio_html = f"""
 <script>
 const audio = document.getElementById('background-audio');
 const btn = document.getElementById('audio-btn');
+let wakeLock = null;
 
-console.log('VibeTFT: Audio component loaded');
+console.log('VibeTFT: Audio & Wake Lock component loaded');
 
-// Play/Pause toggle
-btn.addEventListener('click', () => {{
+// Wake Lock function
+async function enableWakeLock() {{
+    if ('wakeLock' in navigator) {{
+        try {{
+            wakeLock = await navigator.wakeLock.request('screen');
+            console.log('VibeTFT: Wake Lock active');
+        }} catch (e) {{
+            console.log('VibeTFT: Wake Lock failed', e);
+        }}
+    }}
+}}
+
+// Play/Pause toggle - also enables wake lock on first play
+btn.addEventListener('click', async () => {{
+    // Enable wake lock on first interaction
+    if (wakeLock === null) {{
+        await enableWakeLock();
+    }}
+
     if (audio.paused) {{
         audio.play()
             .then(() => {{
@@ -143,14 +131,21 @@ btn.addEventListener('click', () => {{
         console.log('VibeTFT: Background audio paused');
         btn.textContent = '🎵';
         btn.classList.remove('playing');
-        btn.title = '배경음악 재생';
+        btn.title = '배경음악 재생 & 화면 켜짐 유지';
     }}
 }});
 
-// Resume audio when returning from background
-document.addEventListener('visibilitychange', () => {{
-    if (document.visibilityState === 'visible' && !audio.paused) {{
-        audio.play().catch(e => console.log('VibeTFT: Resume failed', e));
+// Handle visibility changes - reacquire wake lock when returning to app
+document.addEventListener('visibilitychange', async () => {{
+    if (document.visibilityState === 'visible') {{
+        // Reacquire wake lock
+        if (wakeLock !== null) {{
+            await enableWakeLock();
+        }}
+        // Resume audio if it was playing
+        if (!audio.paused) {{
+            audio.play().catch(e => console.log('VibeTFT: Resume failed', e));
+        }}
     }}
 }});
 </script>
