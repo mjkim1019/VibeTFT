@@ -1,5 +1,6 @@
 import streamlit as st
 import streamlit.components.v1 as components
+import base64
 
 st.set_page_config(
     page_title='VibeTFT',
@@ -18,7 +19,9 @@ components.html("""
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="/static/manifest.json">
     <link rel="apple-touch-icon" href="/static/icon-192x192.png">
-    
+
+    <!--
+    Service Worker 등록은 HTTPS 환경 및 static 파일 서빙 설정 후 활성화
     <script>
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/static/sw.js')
@@ -29,6 +32,7 @@ components.html("""
                 });
         }
     </script>
+    -->
     
     <style>
         .main > div {
@@ -82,32 +86,40 @@ enableWakeLock().catch(() => {
 """, height=0)
 
 # Background audio for keeping app active in background
-components.html("""
+# Load and encode audio file
+with open('static/audio/background.mp3', 'rb') as audio_file:
+    audio_base64 = base64.b64encode(audio_file.read()).decode()
+
+audio_html = f"""
 <audio id="background-audio" loop>
-    <source src="/static/audio/background.mp3" type="audio/mpeg">
+    <source src="data:audio/mpeg;base64,{audio_base64}" type="audio/mpeg">
 </audio>
 
 <script>
 const audio = document.getElementById('background-audio');
 
+console.log('VibeTFT: Audio component loaded');
+
 // Auto-play background audio
-function playBackgroundAudio() {
+function playBackgroundAudio() {{
     audio.play()
         .then(() => console.log('VibeTFT: Background audio playing'))
         .catch(e => console.log('VibeTFT: Audio play failed', e));
-}
+}}
 
-// Wait for user interaction (required for mobile autoplay policy)
-document.addEventListener('click', playBackgroundAudio, { once: true });
+// Try auto-play on any click
+document.addEventListener('click', playBackgroundAudio, {{ once: true }});
 
 // Resume audio when returning from background
-document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && audio.paused) {
+document.addEventListener('visibilitychange', () => {{
+    if (document.visibilityState === 'visible' && audio.paused) {{
         playBackgroundAudio();
-    }
-});
+    }}
+}});
 </script>
-""", height=0)
+"""
+
+components.html(audio_html, height=0)
 
 st.title('🎮 VibeTFT')
 st.write('Welcome to VibeTFT - Your TFT companion app!')
